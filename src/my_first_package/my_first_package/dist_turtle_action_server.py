@@ -34,6 +34,8 @@ class DistTurtleServer(Node):
             self.execute_callback
         )
 
+        self.get_logger().info('dist_turtle_action_server is started')
+
         self.declare_parameter('quantile_time', 0.75)
         self.declare_parameter('almost_goal_time', 0.95)
         (quantile_time, almost_goal_time) = self.get_parameters([
@@ -43,17 +45,21 @@ class DistTurtleServer(Node):
         self.quantile_time = quantile_time.value
         self.almost_goal_time = almost_goal_time.value
         
+        output_msg = f'quantile_time is {self.quantile_time}. And almost_goal_time is {self.almost_goal_time}'
+        self.get_logger().info(output_msg)
+
         self.add_on_set_parameters_callback(self.parameter_callback)
 
     def parameter_callback(self, params):
         for param in params:
-            print(f'{param.name} is changed to {param.value}')
+            self.get_logger().info(f'{param.name} is changed to {param.value}')
             if param.name == 'quantile_time':
                 self.quantile_time = param.value
             elif param.name == 'almost_goal_time':
                 self.almost_goal_time = param.value
         
-        print(f'Now qunatile_time: {self.quantile_time}, almost_goal_time: {self.almost_goal_time}')
+        self.get_logger().info(f'quantile_time is {self.quantile_time}. And almost_goal_time is {self.almost_goal_time}')
+
         return SetParametersResult(successful=True)
 
     def execute_callback(self, goal_handle):
@@ -68,6 +74,11 @@ class DistTurtleServer(Node):
             feedback_msg.remained_dist = goal_handle.request.dist-self.total_dist
             goal_handle.publish_feedback(feedback_msg)
             self.publisher.publish(msg)
+
+            tmp = feedback_msg.remained_dist-goal_handle.request.dist*self.quantile_time
+            if tmp<0.02:
+                self.get_logger().info(f'The turtle passed the {self.quantile_time} point. : {tmp}')
+
             time.sleep(0.01)
 
             if feedback_msg.remained_dist<0.2:
